@@ -5,19 +5,25 @@ import LinearMaps
 import IterativeSolvers
 using Plots
 using Random
-include("../src/julia/laplace.jl")
-include("../src/julia/helsingquad_laplace.jl")
+include("../../src/julia/laplace.jl")
+include("../../src/julia/helsingquad_laplace.jl")
 
 # Parameters
 numpanels = 100
 panelorder = 16
 solve_inteq = true
+numcurve = 1
 
 # Discretize
 #curve = AnalyticDomains.starfish(radius = 1, n_arms = 0, amplitude = 0)
-curve = AnalyticDomains.starfish(n_arms = 5, amplitude = 0.3)
+curve1 = AnalyticDomains.starfish(n_arms = 5, amplitude = 0.3)
+curve = [curve1]
 println(" Discretizing ")
 dcurve = bieps2d.discretize(curve, numpanels, panelorder, equal_arclength=false)
+S = zeros(Float64,2,0)
+for i = 1:numcurve-1
+	 global S = hcat(S,curve[i+1].center)
+end
 
 N = dcurve.numpoints
 
@@ -38,7 +44,7 @@ N = dcurve.numpoints
 zt1 = [[0.1,0.1] [-0.1,0.1] [-0.1,0.1] [-0.1,-0.1]]
 #ref1 = f(zt1[1],zt1[2])
 ref1 = f(zt1[1,:],zt1[2,:])
-slp1 = layer_potential_direct(dcurve, sol, zt1; slp=1, dlp=0)
+slp1 = layer_potential_direct(dcurve, sol, zt1; slp=1, dlp=0,S)
 #relerr1 = min(sqrt.((ref1 .- slp1).^2)/ abs(ref1),sqrt.((ref1 .+ slp1).^2) / abs(ref1))
 println(" * Direct eval")
 @show sum(sol.*dcurve.dS)/(2*pi);
@@ -50,7 +56,7 @@ err = (abs(maximum(diff)) - abs(minimum(diff))) / norm(ref1, Inf)
 @show err
 
 ndS = dcurve.normals .* dcurve.dS'
-slp1fmm = layer_potential_fmm(dcurve, sol, zt1, BitArray(undef, 4); slp=1, dlp=0)
+slp1fmm = layer_potential_fmm(dcurve, sol, zt1, BitArray(undef, 4),S; slp=1, dlp=0)
 #slp1fmm = slp1fmm ./ (-2*pi)
 diff1 = slp1fmm .- ref1
 err1 = (abs(maximum(diff1)) - abs(minimum(diff1))) / norm(ref1, Inf)
@@ -60,12 +66,12 @@ err1 = (abs(maximum(diff1)) - abs(minimum(diff1))) / norm(ref1, Inf)
 t1 = dcurve.t_edges[1,1]
 t2 = dcurve.t_edges[2,1]
 h1 = t2 - t1
-ztc = curve.tau(t1+h1/2 + 1im*h1*0.1)
+ztc = curve[1].tau(t1+h1/2 + 1im*h1*0.1)
 zt = [real(ztc), imag(ztc)]
 println(" * Near eval")
 @show zt
 ref = f(zt[1], zt[2])
-slp = layer_potential(dcurve, sol, zt; slp=1, dlp=0)
+slp = layer_potential(dcurve, sol, zt; slp=1, dlp=0,S)
 relerr = (ref .- slp .- C) / ref
 @show relerr
 
@@ -81,9 +87,9 @@ zt = zt[:,interior]
 ref = f(zt[1,:],zt[2,:])
 
 ndS = dcurve.normals .* dcurve.dS'
-slpfmm = layer_potential_fmm(dcurve, sol, zt, interior_near; slp=1, dlp=0)
+slpfmm = layer_potential_fmm(dcurve, sol, zt, interior_near,S; slp=1, dlp=0)
 
-slpquad = layer_potential(dcurve, sol, zt; slp=1, dlp=0)
+slpquad = layer_potential(dcurve, sol, zt; slp=1, dlp=0,S)
 
 @show norm(slpquad .- slpfmm)
 
