@@ -1,0 +1,73 @@
+using bieps2d
+using FMMLIB2D
+using LinearAlgebra
+import LinearMaps
+import IterativeSolvers
+using Plots
+using Random
+include("../src/julia/laplace.jl")
+include("../src/julia/helsingquad_laplace.jl")
+
+@testset "MultiplyConnected" begin
+
+	# Setup discretization
+	R1 = 1.0
+	R2 = 0.25
+
+	panelorder = 16    
+	numpanels1 = 40
+	numpanels2 = 10
+	tol = 1e-12
+                                              
+	# Setup problem
+	z1 = 0.01 + 1im*0.02
+	z2 = 1.0 + 1im*1.0
+	ubc(zr,zi) = @. real(1 / (zr+1im*zi - z1)) + real(1 / (zr+1im*zi - z2))
+
+	# Discretize
+	curve1 = AnalyticDomains.starfish(;amplitude = 0.1, radius = R1)
+	curve2 = AnalyticDomains.starfish(;amplitude = 0.0, radius = R2, interior=true)
+	dcurve = CurveDiscretization.discretize([curve1, curve2], [numpanels1, numpanels2], panelorder)
+	N = dcurve.numpoints
+
+	# Right hand side
+	rhs = ubc(dcurve.points[1,:], dcurve.points[2,:])
+   
+	# Dense matrix 
+	println("* Matrix assembly and solve")
+	flhs = system_matvec(dcurve)
+	@time LHS = LinearMaps.LinearMap(flhs, dcurve.numpoints)
+	@time density, gmlog = IterativeSolvers.gmres(LHS, rhs; reltol=eps(), log=true)
+
+# Interior test point
+	zt = [(R1+R2)/2, 0.01]
+	ref = ubc(zt[1], zt[2])
+	dlp = layer_potential_direct(dcurve, density, zt; slp=0, dlp = 1)
+	relerr = maximum(abs.(ref.-dlp)) / maximum(abs.(ref))
+	println("* Interior eval")
+	@show relerr
+	@test relerr < 1e-15
+
+	# Field test
+	Ngrid = 50
+	xmax = maximum(dcurve.points[1,:])
+	xmin = minimum(dcurve.points[1,:])
+	ymax = maximum(dcurve.points[2,:])
+	ymin = minimum(dcurve.points[2,:])
+	x = range(xmin, xmax, length=Ngrid)
+	y = range(ymin, ymax, length=Ngrid)
+	X, Y = CurveDiscretization.ndgrid(x, y)
+	zt = copy([vec(X) vec(Y)]')
+	interior, interior_near = CurveDiscretization.interior_points(dcurve, zt)
+	numeval = sum(interior)
+	zt_interior = zt[:, interior]
+	@time u = layer_potential_fmm(dcurve, density, zt[:, interior], interior_near; slp=0, dlp=1)	
+	uref = ubc(zt_interior[1, :], zt_interior[2, :])
+	unorm = norm(vec(uref), Inf)
+	# Error
+	err = u .- uref
+	maxerr = err
+	max_relerr_grid = norm(vec(maxerr), Inf) / unorm
+	@show max_relerr_grid
+	@test max_relerr_grid < 1e-12
+end

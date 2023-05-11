@@ -1,0 +1,223 @@
+include("cutvoltree.jl")
+include("common/chebexps.jl")
+
+using OffsetArrays
+using bieps2d
+
+function solve_volumepot(frhs,boxlen,xbdry,xdomain,checkinside,curve,uniform,tol;minlev=7)
+
+    nlevels = zeros(Int,0)
+    nboxes = zeros(Int,0)
+    ltree = zeros(Int,0)	 
+    rintl = OffsetArray(Vector{Float64}(undef,200+1),0:200)
+
+    norderuni = 8
+    Bgriduni = Matrix{Float64}(undef,2,norderuni^2)
+    Bxquni = Vector{Float64}(undef,norderuni)
+    Bwtsuni = Vector{Float64}(undef,norderuni)
+    Bumatuni = Matrix{Float64}(undef,norderuni,norderuni)	
+    Bvmatuni = Matrix{Float64}(undef,norderuni,norderuni)
+    Bitypeuni = 2 # What type of calculation to be performed, see function chebexps
+    Bxquni = collect(range(-1,1,norderuni))
+    Bxquni = Bxquni / (2/boxlen)
+    mesh2d(Bxquni,norderuni,Bxquni,norderuni,Bgriduni)
+
+    idxx = findall(abs.(abs.(Bgriduni[1,:]) .- boxlen/2) .< 1e-14)
+    idxy = findall(abs.(abs.(Bgriduni[2,:]) .- boxlen/2) .< 1e-14)
+    idxuni = sort(union(idxx,idxy))
+
+    ug = deepcopy(Bgriduni);
+    h = abs(Bgriduni[1,1] - Bgriduni[1,2])
+    for i=1:2:(norderuni-1)
+        idx = (i*norderuni+1):((i+1)*norderuni)
+        ug[1,idx] .+= h/2
+    end
+
+    idx = findall(ug[1,:] .<= boxlen/2)
+    ug = ug[:,idx]
+
+    xk = copy(ug')
+    nxk = size(xk,1)
+
+
+    println(" #Gaussian basis functions = ", nxk)
+    xk = copy(xk') # Each column is a point (x,y)
+    
+    norder = 8 # norder 8 hard-coded for volume fmm
+    norderrbf = 12
+    norderpou = -1 # Which Ck function to use in pou extension.
+    allDataSet = false # Use data in S and \bar{S}. If unsure set true, gives lower errors and more stability.
+    allData = allDataSet
+    npbox = norder*norder # Total number of Chebyshev nodes in a box
+    iptype = 2 # Norm to measure error in volume fmm
+    if uniform
+        tol = 10.0
+    end
+    bdrytol = 2^(-minlev*1.0+1.0)
+    etascale = 1.0 # Scale estimated error with ~boxsize^eta, set eta = 1 if unsure
+    
+    nboxes,nlevels,ltree,ncut = cutvol_tree_mem(tol,boxlen,norder,iptype,etascale,frhs,rintl,checkinside,xk,minlev,bdrytol,curve)
+    
+    nboxes2 = nboxes
+    println("nboxes = ", nboxes)
+    println("nlevels = ", nlevels)
+    println("ltree = ", ltree)
+    
+    fvals = zeros(Float64,npbox,nboxes)
+    insideidx = zeros(Int64, npbox, nboxes)
+    ninsideidx = zeros(Int64, nboxes)
+
+    centers = Matrix{Float64}(undef,2,nboxes)
+    boxsize = OffsetArray(Vector{Float64}(undef,nlevels+1),0:nlevels)
+    itree = Vector{Int64}(undef,ltree)
+    psis = Vector{Psistruct}(undef,nboxes)
+    iptr = Vector{Int64}(undef,8)
+    icut = Matrix{Int64}(undef,2,nboxes) # 1 if a cut box, 0 if inside, 2 if outside. First index, column ibox: if ibox cut by boundary. Second index: if ibox has Chebyshev nodes inside/outside 
+    
+    # The structure if itree	
+    #          iptr(1) - laddr
+    #          iptr(2) - ilevel : itree[iptr[2]:iptr[3]-1]
+    #          iptr(3) - iparent : itree[iptr[3]:iptr[4]-1]
+    #          iptr(4) - nchild : itree[iptr[4]:iptr[5]-1]
+    #          iptr(5) - ichild : reshape(itree[iptr[5]:iptr[6]-1],(4,nboxes))
+    #          iptr(6) - ncoll : itree[iptr[6]:iptr[7]-1]
+    #          iptr(7) - coll : reshape(itree[iptr[7]:iptr[8]-1],(9,nboxes))
+    #          iptr(8) - ltree
+    
+    println(" * Build tree")
+    nboxes = cutvol_tree_build(tol,boxlen,norder,iptype,etascale,frhs,nlevels,nboxes,ltree,rintl,itree,iptr,fvals,centers,boxsize,checkinside,xk,minlev,psis,insideidx,ninsideidx,icut,bdrytol,curve)
+    fvalsbox = fvals
+    println("Build tree done")
+
+    nleaf = 0
+    for ibox = 1:nboxes
+	if itree[iptr[4] + ibox - 1] == 0
+	    nleaf = nleaf + 1
+	end
+    end	
+    println("nleaf boxes = ", nleaf)
+    println("ncut boxes = ", ncut)
+    println("ncut / nleaf = ", ncut/nleaf)
+
+
+    # Construct Chebyshev grid to be reused								 
+    type = 'f'
+    xref = Matrix{Float64}(undef,2,npbox)
+    wts = Vector{Float64}(undef,norder)
+    umat = Matrix{Float64}(undef,norder,norder)	
+    vmat = Matrix{Float64}(undef,norder,norder)
+    itype = 0 # What type of calculation to be performed, see function chebexps
+    chebtens_exps_2d(itype,norder,type,xref,umat,1,vmat,1,wts)
+    
+    chebgrid = xref / 2 # Scale to [-0.5,0.5]^2 
+    println(" * PUX")
+
+    wvals = zeros(Float64,npbox,nboxes) # POU weights
+    inext = zeros(Int64,nboxes) #TODO: nnext?
+    iext = zeros(Int64,npbox*10,nboxes) # Might not suffice. Ad hoc. TODO: Fix how many levels
+    ipou = zeros(Int64,nboxes)
+
+    ixk = zeros(Bool,size(xk,2),nboxes)
+    extdata = Vector{Extdata}(undef,nboxes)
+    init_extdata(nboxes, extdata)
+    if allDataSet
+	Binsideidx = zeros(Int64, norderrbf^2 + norder^2, nboxes)
+    else
+	Binsideidx = zeros(Int64, norderrbf^2, nboxes)
+    end
+    nBinsideidx = zeros(Int64, nboxes)	
+
+    ###############
+    irefine = zeros(Bool,nboxes)
+
+    println("Extension: Precompute Least-Squares")
+    areainv = Vector{Float64}(undef,nboxes)
+    
+    dctplandim1,dctplandim2,ilocallext,Arbfqr = precompute_extdata_ls(norder,norderrbf,norderpou,itree[iptr[2]:iptr[3]-1], itree[iptr[3]:iptr[4]-1],itree[iptr[4]:iptr[5]-1],reshape(itree[iptr[5]:iptr[6]-1],(4,nboxes)),itree[iptr[6]:iptr[7]-1],reshape(itree[iptr[7]:iptr[8]-1],(9,nboxes)),fvals,frhs,xk,chebgrid,checkinside,centers,boxsize,icut,inext,iext,wvals,nboxes,ipou,extdata,ixk,Binsideidx,nBinsideidx,xbdry,areainv,allData=allDataSet)
+
+
+    println("Extension: Extend Least-Squares")
+    globalext_ls(norder,norderrbf,nboxes,fvals,itree,iptr,frhs,xk,chebgrid,checkinside,centers,boxsize,icut,extdata,inext,iext,ipou,ixk,insideidx,ninsideidx,Binsideidx,nBinsideidx,dctplandim1,dctplandim2,wvals,irefine,rintl[nlevels],iptype,tol,norderpou,ilocallext,areainv,allData=allDataSet)
+
+    println("Extension: Done")
+    potmat = zeros(Float64,npbox,nboxes)
+
+    if uniform
+        tolfmm = 1e-13 # Lowest 1e-13
+    else
+        tolfmm = tol
+    end
+    
+    boxsizepass = Vector{Float64}(undef,1+nlevels)
+    boxsizepass[1:1+nlevels] .= boxsize[0:nlevels]
+    fvalspass = Array{Float64}(undef,1,npbox,nboxes) # TODO: Zeros
+    fvalspass[:,:,:] .= 0.0
+    fvalspass[1,:,:] .= fvals
+    itree32 = Int32.(itree)
+    iptr32 = Int32.(iptr)
+    println("* Volume FMM")
+    ccall( (:solve_fmm_, "../boxcode2d-legacy/int2.so"), Cvoid,(Ref{Float64},Ref{Float64},Ref{Int64},Ref{Int64},Ref{Int64},Ref{Int64},Ref{Int64},Ref{Int32},Ref{Int32},Ref{Float64},Ref{Float64},Ref{Float64}), Ref{Float64}(tolfmm),potmat,Ref{Int64}(ltree),Ref{Int64}(npbox),Ref{Int64}(norder),Ref{Int64}(nboxes),Ref{Int64}(nlevels),itree32,iptr32,fvalspass,boxsizepass,centers)
+
+
+    ########################################################################
+    # Evaluate potential on boundary at points xbdry
+    println("* Start: Evaluation of potential on boundary")
+    nevalbdry = size(xbdry,2)
+    potbdry = zeros(Float64,nevalbdry)
+    # Sort points
+    boxtargbdry = zeros(Int64,nevalbdry)
+    interppot_sort(norder,xbdry,itree[iptr[4]:iptr[5]-1],reshape(itree[iptr[5]:iptr[6]-1],(4,nboxes)),potmat,centers,boxsize,boxtargbdry)
+    interppot_eval(norder,xbdry,itree[iptr[2]:iptr[3]-1],itree[iptr[4]:iptr[5]-1],reshape(itree[iptr[5]:iptr[6]-1],(4,nboxes)),potmat,centers,boxsize,boxtargbdry,potbdry)
+
+    println("* Done: Evaluation of potential on boundary")
+
+    #####################################################
+    # Evaluate potential in domain at points xdomain
+    println("* Start: Evaluation of potential in domain")
+    nevaldomain = size(xdomain,2)
+    potdomain = zeros(Float64,nevaldomain)
+    # Sort points
+    boxtargdomain = zeros(Int64,nevaldomain)
+    interppot_sort(norder,xdomain,itree[iptr[4]:iptr[5]-1],reshape(itree[iptr[5]:iptr[6]-1],(4,nboxes)),potmat,centers,boxsize,boxtargdomain)
+    interppot_eval(norder,xdomain,itree[iptr[2]:iptr[3]-1],itree[iptr[4]:iptr[5]-1],reshape(itree[iptr[5]:iptr[6]-1],(4,nboxes)),potmat,centers,boxsize,boxtargdomain,potdomain)
+    #####################################################
+    # Evaluate fvals in domain at points xdomain
+    println("* Start: Evaluation of extension in domain")
+    # Sort points
+    fextdomain = zeros(Float64,nevaldomain)
+    interppot_eval(norder,xdomain,itree[iptr[2]:iptr[3]-1],itree[iptr[4]:iptr[5]-1],reshape(itree[iptr[5]:iptr[6]-1],(4,nboxes)),fvalsbox,centers,boxsize,boxtargdomain,fextdomain)
+
+    println("* Done: Evaluation of extension in domain")
+    #	plotsubdivision(centers,boxsize,itree,iptr,nboxes)
+
+
+    #####################################################
+    # Compute integral of f^e over [-L/2,L/2]^2
+    uplim = computeintbox(norder,nboxes,fvals,3,itree[iptr[4]:iptr[5] - 1],itree[iptr[2]:iptr[3]- 1],boxsize)	 
+
+    uplim = uplim/4/pi # divide by 1/(2*pi) and 1/2 from log(|x|) = 1/2 log(x^2), adds far-field condition uplim * log(x^2 + y^2)
+
+    #=
+    nextpnts = 0
+    for ibox = 1:nboxes
+        if inext[ibox] != 0
+            next = inext[ibox]
+            extdataibox = extdata[ibox]
+            for j=1:next
+                nextpnts = nextpnts + norder^2
+            end
+        end
+    end
+    println("nextpnts = ", nextpnts)
+
+    nextpntsSbar = 0
+    for ibox = 1:nboxes
+        if inext[ibox] != 0
+            idxoutB = Binsideidx[nBinsideidx[ibox]+1:end,ibox]
+            nextpntsSbar = nextpntsSbar + length(idxoutB)
+        end
+    end
+    println("nextpnts Sbar = ", nextpntsSbar)
+    =#
+    return potdomain,potbdry,minlev,fextdomain,itree,iptr,fvals,centers,boxsize,nboxes,ipou,potmat,uplim
+end
