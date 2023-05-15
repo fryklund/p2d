@@ -6,8 +6,8 @@ import IterativeSolvers
 using SpecialFunctions
 include("../../src/julia/laplace.jl")
 include("../../src/julia/helsingquad_laplace.jl")
-include("../../dev/laplacesquare.jl")
-include("../../dev/solve_volumepot.jl")
+include("../../src/julia/laplacesquare.jl")
+include("../../src/julia/solve_volumepot.jl")
 
 
 function harm_exact_solutionpoissonsquare(x,y)
@@ -108,7 +108,7 @@ function checkinsidesquare(x,y,boxlen,center,theta)
 	return intersect(findall(a1 .< xp .< b1), findall(a2 .< yp .< b2))
 end
 
-function solvesquare(minlev)
+function solvesquare(minlev,tol,uniform)
 # ********************************************************
 # *** Solves Laplace equation with basic RCIP inside a polygon    *
 # ********************************************************
@@ -268,13 +268,14 @@ xgrid = range(-boxlenfmm/2 * fudge, boxlenfmm/2 * fudge, length=Ngrid)
 ygrid = range(-boxlenfmm/2 * fudge, boxlenfmm/2 * fudge, length=Ngrid)
 #xgrid = xgrid[1:end-1]
 #ygrid = ygrid[1:end-1]
-X_target, Y_target = PUX.ndgrid(xgrid, ygrid)
+X_target, Y_target = ndgrid(xgrid, ygrid)
 xe = [vec(X_target) vec(Y_target)]
 xet = copy(xe')
 xdomain = xet
 curve(t) = t.*0
 checkinside(x) = checkinsidesquare(x[1,:],x[2,:],boxlen,boxcenter,theta)
-Up, Up_bdry,minlev2,FEXT,itree, iptr, fvals, centers, boxsize, nboxes, ipou, potmat, uplim = solve_volumepot(frhs,boxlenfmm,xbdry,xdomain,checkinside,minlev=minlev)
+checkcut(c,bs) = checkcut_square(c,bs,xbdrycheck)
+Up, Up_bdry,minlev2,FEXT,itree, iptr, fvals, centers, boxsize, nboxes, ipou, potmat, uplim = solve_volumepot(frhs,boxlenfmm,xbdry,xdomain,checkinside,curve,uniform,tol,checkcut,minlev=minlev)
 rhs = rhs .- Up_bdry
 
 # solve for actual density function on the coarse grid

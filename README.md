@@ -8,8 +8,8 @@ Install:
 
 1, Download the 2d boxcode for an 8th order volume fmm: https://github.com/mrachh/boxcode2d-legacy
 2, Follow the install instructions for the boxcode
-3, Run make install from poisson2d/src/fortan
-4, Launch the Julia REPL in poisson2d/
+3, Run make install from p2d/src/fortan
+4, Launch the Julia REPL in p2d/
 4, In the Julia REPL, activate the project through entering ']' followed by 'instantiate'
 
 Run the code:
@@ -17,3 +17,4 @@ Run the code:
 1, Launch the Julia REPL
 2, In the Julia REPL, write ']' followed by 'activate .'
 3, In the Julia REPL, write 'include("startup.jl")'
+4, Now run any of the examples in examples/

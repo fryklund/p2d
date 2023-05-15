@@ -4,7 +4,7 @@ include("common/chebexps.jl")
 using OffsetArrays
 using bieps2d
 
-function solve_volumepot(frhs,boxlen,xbdry,xdomain,checkinside,curve,uniform,tol;minlev=7)
+function solve_volumepot(frhs,boxlen,xbdry,xdomain,checkinside,curve,uniform,tol,checkcut;minlev=7)
 
     nlevels = zeros(Int,0)
     nboxes = zeros(Int,0)
@@ -56,7 +56,7 @@ function solve_volumepot(frhs,boxlen,xbdry,xdomain,checkinside,curve,uniform,tol
     bdrytol = 2^(-minlev*1.0+1.0)
     etascale = 1.0 # Scale estimated error with ~boxsize^eta, set eta = 1 if unsure
     
-    nboxes,nlevels,ltree,ncut = cutvol_tree_mem(tol,boxlen,norder,iptype,etascale,frhs,rintl,checkinside,xk,minlev,bdrytol,curve)
+    nboxes,nlevels,ltree,ncut = cutvol_tree_mem(tol,boxlen,norder,iptype,etascale,frhs,rintl,checkinside,xk,minlev,bdrytol,curve,checkcut)
     
     nboxes2 = nboxes
     println("nboxes = ", nboxes)
@@ -85,7 +85,7 @@ function solve_volumepot(frhs,boxlen,xbdry,xdomain,checkinside,curve,uniform,tol
     #          iptr(8) - ltree
     
     println(" * Build tree")
-    nboxes = cutvol_tree_build(tol,boxlen,norder,iptype,etascale,frhs,nlevels,nboxes,ltree,rintl,itree,iptr,fvals,centers,boxsize,checkinside,xk,minlev,psis,insideidx,ninsideidx,icut,bdrytol,curve)
+    nboxes = cutvol_tree_build(tol,boxlen,norder,iptype,etascale,frhs,nlevels,nboxes,ltree,rintl,itree,iptr,fvals,centers,boxsize,checkinside,xk,minlev,psis,insideidx,ninsideidx,icut,bdrytol,curve,checkcut)
     fvalsbox = fvals
     println("Build tree done")
 

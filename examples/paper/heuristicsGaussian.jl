@@ -1,16 +1,15 @@
+using bieps2d
 using LinearAlgebra
-using MATLAB
-using rbfqr
 using Plots
 import Random
 
 Random.seed!(0)
 
-include("../../dev/chebyshev2dinterpolation.jl")
-include("../../dev/chebexps.jl")
-include("../../dev/legetens.jl")
-include("../../dev/volumetree_pux.jl")
-include("../../dev/haltonbox.jl")
+include("../../src/julia/common/chebyshev2dinterpolation.jl")
+include("../../src/julia/common/chebexps.jl")
+include("../../src/julia/common/legetens.jl")
+include("../../src/julia/cutvoltree.jl")
+
 
 function setCheb(order)
     if order == 0
@@ -41,12 +40,6 @@ function setCheb(order)
     return T
 end
 
-function distmesh(ax,bx,ay,by,eta)
-    mat"addpath('src/external/distmesh')"
-    mat"$p= distmesh2d(@dpoly,@huniform, $eta,[-1,-1; 1,1],[1 1; -1 1; -1 -1; 1 -1; 1 1],[1 1; -1 1; -1 -1; 1 -1; 1 1]);"
-    p = hcat(p[:,1]*(bx - ax)/2 .+ (bx + ax) / 2, p[:,2] *(by - ay)/2 .+ (by + ay)/2)
-    return p
-end
 
 boxlen = 2^(1)
 # First kind
@@ -76,12 +69,6 @@ v0 = -boxlen0/2 .+ rand(Nrand,4)*(boxlen0/2 + boxlen0/2)
 Nrandeval = 1000
 xrandeval = hcat((rand(Nrandeval) .- 0.5)*boxlen0*0.95,(rand(Nrandeval) .- 0.5)*boxlen0*0.95)
 
-# Delauny triangulation
-xkdens = 0.286
-#xkdens = 0.5
-ax,bx,ay,by = -boxlen/2,boxlen/2,-boxlen/2,boxlen/2
-xkdel = distmesh(ax,bx,ay,by,xkdens)
-nxkdel = size(xkdel,1)
 
 # Distribution of Gaussians:
 
@@ -114,17 +101,7 @@ mesh2d(Bxquni,norderuni,Bxquni,norderuni,Bgriduni)
 xkuni = hcat(vec(Bgriduni[1,:]),vec(Bgriduni[2,:]))
 nxkuni = size(xkuni,1)
 
-# Combination of unifrom and Delauny
-idxx = findall(abs.(abs.(Bgriduni[1,:]) .- 1) .< 1e-14)
-idxy = findall(abs.(abs.(Bgriduni[2,:]) .- 1) .< 1e-14)
-idxuni = sort(union(idxx,idxy))
-idxx = findall(abs.(abs.(xkdel[:,1]) .- 1) .< 1e-2)
-idxy = findall(abs.(abs.(xkdel[:,2]) .- 1) .< 1e-2)
-idxdel = setdiff(collect(1:nxkdel),sort(union(idxx,idxy)))
-xkunion = vcat(copy(Bgriduni[:,idxuni])',xkdel[idxdel,:])
 
-xkhalton = 2*(halton(round(Int64,26/pi*7.7),2) .- 0.5)
-nxkhalton = size(xkhalton,1)
 
 # Staggered grid
 
@@ -137,16 +114,11 @@ end
 idx = findall(ug[1,:] .<= 1.0)
 ug = ug[:,idx]
 
-#xk = xkdel
-#nxk = nxkdel
-
 xk = copy(ug')
 nxk = size(xk,1)
 
 diagh = sqrt((xk[1,1]-xk[9,1])^2 + (xk[1,2]-xk[9,2])^2)
 
-#xk = xkhalton
-#nxk = nxkhalton
 
 println(" #Gaussian basis functions = ", nxk)
 
@@ -589,7 +561,7 @@ for orderm = 0:7
     end
 end
 
-#=
+
 Plots.plot([0;Nrand+1],([0.5e-10;0.5e-10]),lc=:red,legend = false,lw=5.0,ylim=(1e-15, 1e-9),yaxis=:log)
 
 for i=1:Nrand
@@ -598,121 +570,4 @@ for i=1:Nrand
     p = Plots.scatter!(i*ones(length(idx)),vals, mc=:black, ms=2,legend = false,yaxis=:log,ylabel = "Maxmimum error",xlabel = "Experiment number")
     display(p)
 end
-=#
 
-#=
-boxlen0 = boxlen/3
-ax = -boxlen0/2
-ay = -boxlen0/2
-bx = boxlen0/2
-by = boxlen0/2
-
-x = [ax,bx,bx,ax,ax]
-y = [ay,ay,by,by,ay]
-plot(x,y)
-scatter!(xk[idxxkin,1],xk[idxxkin,2])
-plot!([-boxlen/2,boxlen/2,boxlen/2,-boxlen/2,-boxlen/2],[-boxlen/2,-boxlen/2,boxlen/2,boxlen/2,-boxlen/2])
-=#
-#println("Min error = ", toterr)
-##################################################################
-#=
-order = norderrbf
-numCoeffs = div((order+2)*(order+1),2)
-scalexk = 1.0./ maximum(abs.(Bgrid[1,idxBin]));
-scaleyk = 1.0./ maximum(abs.(Bgrid[2,idxBin]));
-xsk=Bgrid[1,idxBin]*scalexk
-ysk=Bgrid[2,idxBin]*scaleyk
-Ak = zeros(length(idxBin), numCoeffs)
-col = 1
-for i = 0:order
-for j = 0:(order-i)
-Ak[:,col] = (xsk[:] .^ i) .* (ysk[:] .^ j)
-global	col += 1
-end
-end
-println(size(Ak))
-#@show cond(Ak)
-
-Fk = F2d.(Bgrid[1,idxBin], Bgrid[2,idxBin])
-Ck = Ak \ Fk
-# Scale coeff
-col = 1
-for i = 0:order
-for j = 0:(order-i)
-Ck[col] *=	 (scalexk .^ i) .* (scaleyk .^ j)
-global	col += 1
-end
-end
-# Do all points to look at interpolation error
-Fe = zeros(norderrbf * norderrbf)
-column = 1
-for xpower = 0:order
-for ypower = 0:(order-xpower)
-global	Fe +=  (Ck[column] .* Bgrid[1,:].^xpower .* Bgrid[2,:].^ypower)
-global	column += 1;
-end
-end
-=#
-#=
-Fdatacheb = F2d.(Bgrid[1,idxBin],Bgrid[2,idxBin])
-
-chebypoly_x = chebypoly.(Bgrid[1,:],-boxlen/2,boxlen/2,norderrbf)
-chebypoly_y = chebypoly.(Bgrid[2,:],-boxlen/2,boxlen/2,norderrbf)
-
-Chx = zeros(norderrbf,norderrbf^2)
-Chy = zeros(norderrbf,norderrbf^2)
-for k = 1:length(idxBin)
-Chx[:,k] .= vec(chebypoly_x[k])
-Chy[:,k] .= vec(chebypoly_y[k])
-end
-
-
-AC = zeros(norderrbf^2,norderrbf^2)
-order = norderrbf
-
-col = 1
-for i = 1:order
-for j = 1:order
-AC[:,col] .= (Chx[i,:]) .* (Chy[j,:])
-global	col += 1
-end
-end
-
-CVand = AC[idxBin,:]\Fdatacheb
-Fdatacheb = F2d.(Bgrid[1,idxBin],Bgrid[2,idxBin])
-
-
-for i = 1:nxk
-println("ERROR eval = ",abs(Fxk[i] - eval_func_2D(reshape(CVand,(norderrbf,norderrbf)),xk[i,1],xk[i,2],norderrbf,-boxlen/2,boxlen/2,norderrbf,-boxlen/2,boxlen/2)))
-end
-
-=#
-#=
-Fdatacheb = F2d.(Bgrid[1,idxBin],Bgrid[2,idxBin])
-
-chebypoly_x = chebypoly.(0.0,-boxlen/2,boxlen/2,norderrbf)
-chebypoly_y = chebypoly.(0.0,-boxlen/2,boxlen/2,norderrbf)
-
-Chx = zeros(norderrbf,1)
-Chy = zeros(norderrbf,1)
-for k = 1:1
-Chx[:,k] .= vec(chebypoly_x[k])
-Chy[:,k] .= vec(chebypoly_y[k])
-end
-
-
-AC = zeros(norderrbf^2,1)
-order = norderrbf
-
-col = 1
-for i = 1:order
-for j = 1:order
-AC[col,:] = (Chx[i,:]) .* (Chy[j,:])
-global	col += 1
-end
-end
-
-CVand = AC\Fdatacheb
-
-
-=#

@@ -79,7 +79,7 @@ c          iptr(8) - ltree
 c
 =#
 
-function cutvol_tree_mem(tol::Float64,boxlen::Float64,norder::Int64,iptype::Int64,eta::Float64,fun::Function,rintl::OffsetVector{Float64, Vector{Float64}},checkinside::Function,xk::Matrix{Float64},minlev::Int64,bdrytol::Float64,curve)
+function cutvol_tree_mem(tol::Float64,boxlen::Float64,norder::Int64,iptype::Int64,eta::Float64,fun::Function,rintl::OffsetVector{Float64, Vector{Float64}},checkinside::Function,xk::Matrix{Float64},minlev::Int64,bdrytol::Float64,curve,checkcut::Function)
     #=
     c
     c      get memory requirements for the tree
@@ -266,7 +266,7 @@ function cutvol_tree_mem(tol::Float64,boxlen::Float64,norder::Int64,iptype::Int6
 	if irefine == 1
 	    boxsize[ilev+1] = boxsize[ilev] / 2
             laddr[1,ilev+1] = nbctr + 1
- 	    nbctr = cutvol_tree_refine_boxes(irefinebox,npbox,fvals,fun,grid,nbmax,ifirstbox,nbloc,centers,boxsize[ilev+1],nbctr,ilev+1,ilevel,iparent,nchild,ichild,xk,checkinside,icut,psis,insideidx,ninsideidx,curve)
+ 	    nbctr = cutvol_tree_refine_boxes(irefinebox,npbox,fvals,fun,grid,nbmax,ifirstbox,nbloc,centers,boxsize[ilev+1],nbctr,ilev+1,ilevel,iparent,nchild,ichild,xk,checkinside,icut,psis,insideidx,ninsideidx,curve,checkcut)
 
             rsc = boxsize[ilev+1]^2/4
             rintbs, rint = update_rints(npbox,nbmax,fvals,ifirstbox,nbloc,iptype,nchild,ichild,wts2,rsc,rintbs,rint)
@@ -326,9 +326,9 @@ function cutvol_tree_mem(tol::Float64,boxlen::Float64,norder::Int64,iptype::Int6
 
 	if nlevels >= 2 # Always satisfied
 	    
-	    nboxes = cutvol_tree_fix_lr(fun,norder,npbox,fvals,grid,centers,nlevels,nboxes,boxsize,nbmax,nlmax,laddr,ilevel,iparent,nchild,ichild,nnbors,nbors,xk,checkinside,icut,psis,insideidx,ninsideidx,bdrytol)
+	    nboxes = cutvol_tree_fix_lr(fun,norder,npbox,fvals,grid,centers,nlevels,nboxes,boxsize,nbmax,nlmax,laddr,ilevel,iparent,nchild,ichild,nnbors,nbors,xk,checkinside,icut,psis,insideidx,ninsideidx,bdrytol,checkcut)
 	    
-	    nboxes = cutvol_tree_fix_lr(fun,norder,npbox,fvals,grid,centers,nlevels,nboxes,boxsize,nbmax,nlmax,laddr,ilevel,iparent,nchild,ichild,nnbors,nbors,xk,checkinside,icut,psis,insideidx,ninsideidx,bdrytol)
+	    nboxes = cutvol_tree_fix_lr(fun,norder,npbox,fvals,grid,centers,nlevels,nboxes,boxsize,nbmax,nlmax,laddr,ilevel,iparent,nchild,ichild,nnbors,nbors,xk,checkinside,icut,psis,insideidx,ninsideidx,bdrytol,checkcut)
 	    
 	end
     end
@@ -338,7 +338,7 @@ function cutvol_tree_mem(tol::Float64,boxlen::Float64,norder::Int64,iptype::Int6
     return nboxes,nlevels,ltree, ncut
 end #vol_tree_mem
 
-function cutvol_tree_build(tol::Float64,boxlen::Float64,norder::Int64,iptype::Int64,eta::Float64,fun::Function,nlevels::Int64,nboxes::Int64,ltree::Int64,rintl::OffsetVector{Float64, Vector{Float64}},itree::Vector{Int64},iptr::Vector{Int64},fvals::Matrix{Float64},centers::Matrix{Float64},boxsize::OffsetVector{Float64, Vector{Float64}},checkinside::Function,xk::Matrix{Float64},minlev::Int64,psis::Vector{Psistruct},insideidx::Matrix{Int64},ninsideidx::Vector{Int64},icut::Matrix{Int64},bdrytol::Float64,curve)
+function cutvol_tree_build(tol::Float64,boxlen::Float64,norder::Int64,iptype::Int64,eta::Float64,fun::Function,nlevels::Int64,nboxes::Int64,ltree::Int64,rintl::OffsetVector{Float64, Vector{Float64}},itree::Vector{Int64},iptr::Vector{Int64},fvals::Matrix{Float64},centers::Matrix{Float64},boxsize::OffsetVector{Float64, Vector{Float64}},checkinside::Function,xk::Matrix{Float64},minlev::Int64,psis::Vector{Psistruct},insideidx::Matrix{Int64},ninsideidx::Vector{Int64},icut::Matrix{Int64},bdrytol::Float64,curve,checkcut::Function)
     #=
     c
     c      compute the tree
@@ -485,7 +485,7 @@ function cutvol_tree_build(tol::Float64,boxlen::Float64,norder::Int64,iptype::In
 	if irefine == 1
 	    boxsize[ilev+1] = boxsize[ilev] / 2
 	    itree[2*ilev+3] = nbctr + 1
-	    nbctr = cutvol_tree_refine_boxes(irefinebox,npbox,fvals,fun,grid,nboxes,ifirstbox,nbloc,centers,boxsize[ilev+1],nbctr,ilev+1,view(itree,iptr[2]:iptr[3]-1),view(itree,iptr[3]:iptr[4]-1),view(itree,iptr[4]:iptr[5]-1),reshape(view(itree,iptr[5]:iptr[6]-1),(4,nboxes)),xk,checkinside,icut,psis,insideidx,ninsideidx,curve)
+	    nbctr = cutvol_tree_refine_boxes(irefinebox,npbox,fvals,fun,grid,nboxes,ifirstbox,nbloc,centers,boxsize[ilev+1],nbctr,ilev+1,view(itree,iptr[2]:iptr[3]-1),view(itree,iptr[3]:iptr[4]-1),view(itree,iptr[4]:iptr[5]-1),reshape(view(itree,iptr[5]:iptr[6]-1),(4,nboxes)),xk,checkinside,icut,psis,insideidx,ninsideidx,curve,checkcut)
 	    
 	    itree[2*ilev+4] = nbctr
 	else
@@ -515,7 +515,7 @@ function cutvol_tree_build(tol::Float64,boxlen::Float64,norder::Int64,iptype::In
     
     if nlevels >= 2
 	
-	nboxes1 = cutvol_tree_fix_lr(fun,norder,npbox,fvals,grid,centers,nlevels,nboxes0,boxsize,nboxes,nlevels,laddrpass,view(itree,iptr[2]:iptr[3]-1),view(itree,iptr[3]:iptr[4]-1),view(itree,iptr[4]:iptr[5]-1),reshape(view(itree,iptr[5]:iptr[6]-1),(4,nboxes)),view(itree,iptr[6]:iptr[7]-1),reshape(view(itree,iptr[7]:iptr[8]-1),(9,nboxes)),xk,checkinside,icut,psis,insideidx,ninsideidx,bdrytol)
+	nboxes1 = cutvol_tree_fix_lr(fun,norder,npbox,fvals,grid,centers,nlevels,nboxes0,boxsize,nboxes,nlevels,laddrpass,view(itree,iptr[2]:iptr[3]-1),view(itree,iptr[3]:iptr[4]-1),view(itree,iptr[4]:iptr[5]-1),reshape(view(itree,iptr[5]:iptr[6]-1),(4,nboxes)),view(itree,iptr[6]:iptr[7]-1),reshape(view(itree,iptr[7]:iptr[8]-1),(9,nboxes)),xk,checkinside,icut,psis,insideidx,ninsideidx,bdrytol,checkcut)
 
 	itree[iptr[1]:iptr[2]-1] .= reshape(OffsetArray(laddrpass,1:2,1:nlevels+1),2*(nlevels+1))
     end
@@ -541,7 +541,7 @@ function cutvol_tree_build(tol::Float64,boxlen::Float64,norder::Int64,iptype::In
     
     if nlevels >= 2
 	
-	nboxes = cutvol_tree_fix_lr(fun,norder,npbox,fvals,grid,centers,nlevels,nboxes1,boxsize,nboxes,nlevels,laddrpass,view(itree,iptr[2]:iptr[3]-1),view(itree,iptr[3]:iptr[4]-1),view(itree,iptr[4]:iptr[5]-1),reshape(view(itree,iptr[5]:iptr[6]-1),(4,nboxes)),view(itree,iptr[6]:iptr[7]-1),reshape(view(itree,iptr[7]:iptr[8]-1),(9,nboxes)),xk,checkinside,icut,psis,insideidx,ninsideidx,bdrytol)
+	nboxes = cutvol_tree_fix_lr(fun,norder,npbox,fvals,grid,centers,nlevels,nboxes1,boxsize,nboxes,nlevels,laddrpass,view(itree,iptr[2]:iptr[3]-1),view(itree,iptr[3]:iptr[4]-1),view(itree,iptr[4]:iptr[5]-1),reshape(view(itree,iptr[5]:iptr[6]-1),(4,nboxes)),view(itree,iptr[6]:iptr[7]-1),reshape(view(itree,iptr[7]:iptr[8]-1),(9,nboxes)),xk,checkinside,icut,psis,insideidx,ninsideidx,bdrytol,checkcut)
 
 	itree[iptr[1]:iptr[2]-1] .= reshape(OffsetArray(laddrpass,1:2,1:nlevels+1),2*(nlevels+1))
     end
@@ -604,7 +604,7 @@ end # vol_tree_find_box_refine
 
 
 # TODO: RETURN CORRECT ARGUMENTS
-function cutvol_tree_refine_boxes(irefinebox::Vector{Int64},npbox::Int64,fvals::Matrix{Float64},fun::Function,grid::Matrix{Float64},nboxes::Int64,ifirstbox::Int64,nbloc::Int64,centers::Matrix{Float64},bs::Float64,nbctr::Int64,nlctr::Int64,ilevel::AbstractVector,iparent::AbstractVector,nchild::AbstractVector,ichild::AbstractMatrix,xk::Matrix{Float64},checkinside::Function,icut::Matrix{Int64},psis::Vector{Psistruct},insideidx::Matrix{Int64},ninsideidx::Vector{Int64},curve)
+function cutvol_tree_refine_boxes(irefinebox::Vector{Int64},npbox::Int64,fvals::Matrix{Float64},fun::Function,grid::Matrix{Float64},nboxes::Int64,ifirstbox::Int64,nbloc::Int64,centers::Matrix{Float64},bs::Float64,nbctr::Int64,nlctr::Int64,ilevel::AbstractVector,iparent::AbstractVector,nchild::AbstractVector,ichild::AbstractMatrix,xk::Matrix{Float64},checkinside::Function,icut::Matrix{Int64},psis::Vector{Psistruct},insideidx::Matrix{Int64},ninsideidx::Vector{Int64},curve,checkcut)
 
 
     isum = cumsum(irefinebox)
@@ -636,7 +636,7 @@ function cutvol_tree_refine_boxes(irefinebox::Vector{Int64},npbox::Int64,fvals::
 		    fvals[:,jbox] .= 0.0
 		elseif (icut[1,ibox] == 1)
 		    # Cell might be cut. Check.
-		    iscut = checkcut(centers[:,jbox],bs,curve)
+		    iscut = checkcut(centers[:,jbox],bs)
 		    if iscut # True
 			icut[1,jbox] = 1
 			xy = centers[:,jbox] .+ grid * bs
@@ -669,10 +669,6 @@ function cutvol_tree_refine_boxes(irefinebox::Vector{Int64},npbox::Int64,fvals::
 			    ninsideidx[jbox] = 0
 			    fvals[:,jbox] .= 0.0
 			    if(nin != 0)
-                                #								PyPlot.scatter(xy[1,:],xy[2,:])	 	  
-                                #								PyPlot.scatter(xy[1,idxin],xy[2,idxin])	 
-				println("OUTSIDE ERROR ", nin)
-				#				icut[2,jbox] = 1
 				insideidx[1:nin,jbox] .= idxin
 				insideidx[nin+1:end,jbox] = setdiff(range(1,npbox),idxin)
 				ninsideidx[jbox] = nin
@@ -684,9 +680,6 @@ function cutvol_tree_refine_boxes(irefinebox::Vector{Int64},npbox::Int64,fvals::
 			    ninsideidx[jbox] = npbox
 			    fvals[:,jbox] .= fun.(xy[1,:],xy[2,:])
 			    if(nin != npbox)
-				println("INSIDE ERROR ", nin)
-                                #								PyPlot.scatter(xy[1,:],xy[2,:])	 	 
-                                #								PyPlot.scatter(xy[1,idxin],xy[2,idxin])
 				icut[2,jbox] = 1
 				insideidx[1:nin,jbox] .= idxin
 				insideidx[nin+1:end,jbox] = setdiff(range(1,npbox),idxin)
@@ -988,7 +981,7 @@ function vol_tree_copy(nb::Int64,npb::Int64,centers::Matrix{Float64},ilevel::Abs
 end # vol_tree_copy
 
 
-function cutvol_tree_fix_lr(fun::Function,norder::Int64,npbox::Int64,fvals::Matrix{Float64},grid::Matrix{Float64},centers::Matrix{Float64},nlevels::Int64,nboxes::Int64,boxsize::OffsetVector{Float64, Vector{Float64}},nbmax::Int64,nlmax::Int64,laddr::AbstractMatrix,ilevel::AbstractVector,iparent::AbstractVector,nchild::AbstractVector,ichild::AbstractMatrix,nnbors::AbstractVector,nbors::AbstractMatrix,xk::Matrix{Float64},checkinside::Function,icut::Matrix{Int64},psis::Vector{Psistruct},insideidx::Matrix{Int64},ninsideidx::Vector{Int64},bdrytol::Float64)
+function cutvol_tree_fix_lr(fun::Function,norder::Int64,npbox::Int64,fvals::Matrix{Float64},grid::Matrix{Float64},centers::Matrix{Float64},nlevels::Int64,nboxes::Int64,boxsize::OffsetVector{Float64, Vector{Float64}},nbmax::Int64,nlmax::Int64,laddr::AbstractMatrix,ilevel::AbstractVector,iparent::AbstractVector,nchild::AbstractVector,ichild::AbstractMatrix,nnbors::AbstractVector,nbors::AbstractMatrix,xk::Matrix{Float64},checkinside::Function,icut::Matrix{Int64},psis::Vector{Psistruct},insideidx::Matrix{Int64},ninsideidx::Vector{Int64},bdrytol::Float64,checkcut::Function)
 
     #       convert an adaptive tree into a level restricted tree
     #		  For boxes cut by the boundary make sure that there are no coarse neighbors outside Omega.
@@ -1208,7 +1201,7 @@ function cutvol_tree_fix_lr(fun::Function,norder::Int64,npbox::Int64,fvals::Matr
 	nbloc = laddr[2,ilev] - laddr[1,ilev] + 1
 
 	
-	nboxes = cutvol_tree_refine_boxes_flag(iflag,npbox,fvals,fun,grid,nbmax,laddr[1,ilev],nbloc,centers,boxsize[ilev+1],nboxes,ilev,ilevel,iparent,nchild,ichild,xk,checkinside,icut,psis,insideidx,ninsideidx)
+	nboxes = cutvol_tree_refine_boxes_flag(iflag,npbox,fvals,fun,grid,nbmax,laddr[1,ilev],nbloc,centers,boxsize[ilev+1],nboxes,ilev,ilevel,iparent,nchild,ichild,xk,checkinside,icut,psis,insideidx,ninsideidx,checkcut)
 	laddrtail[2,ilev+1] = nboxes
     end
     #     Reorganize the tree to get it back in the standard format
@@ -1278,11 +1271,11 @@ function cutvol_tree_fix_lr(fun::Function,norder::Int64,npbox::Int64,fvals::Matr
 
 	nbloc = laddr[2,ilev]-laddr[1,ilev]+1
 
-	nboxes = cutvol_tree_refine_boxes_flag(iflag,npbox,fvals,fun,grid,nbmax,laddr[1,ilev],nbloc,centers,boxsize[ilev+1],nboxes,ilev,ilevel,iparent,nchild,ichild,xk,checkinside,icut,psis,insideidx,ninsideidx)
+	nboxes = cutvol_tree_refine_boxes_flag(iflag,npbox,fvals,fun,grid,nbmax,laddr[1,ilev],nbloc,centers,boxsize[ilev+1],nboxes,ilev,ilevel,iparent,nchild,ichild,xk,checkinside,icut,psis,insideidx,ninsideidx,checkcut)
 
 	nbloc = laddrtail[2,ilev] - laddrtail[1,ilev] + 1
 
-	nboxes = cutvol_tree_refine_boxes_flag(iflag,npbox,fvals,fun,grid,nbmax,laddrtail[1,ilev],nbloc,centers,boxsize[ilev+1],nboxes,ilev,ilevel,iparent,nchild,ichild,xk,checkinside,icut,psis,insideidx,ninsideidx)
+	nboxes = cutvol_tree_refine_boxes_flag(iflag,npbox,fvals,fun,grid,nbmax,laddrtail[1,ilev],nbloc,centers,boxsize[ilev+1],nboxes,ilev,ilevel,iparent,nchild,ichild,xk,checkinside,icut,psis,insideidx,ninsideidx,checkcut)
 	
 	laddrtail[2,ilev+1] = nboxes         
         #      Step 3: Update the colleague information for the newly
@@ -1336,30 +1329,8 @@ function cutvol_tree_fix_lr(fun::Function,norder::Int64,npbox::Int64,fvals::Matr
 end # vol_tree_fix_lr
 
 
-function cutvol_tree_refine_boxes_flag(iflag::Vector{Int64},npbox::Int64,fvals::Matrix{Float64},fun::Function,grid::Matrix{Float64},nboxes::Int64,ifirstbox::Int64,nbloc::Int64,centers::Matrix{Float64},bs::Float64,nbctr::Int64,nlctr::Int64,ilevel::AbstractVector,iparent::AbstractVector,nchild::AbstractVector,ichild::AbstractMatrix,xk::Matrix{Float64},checkinside::Function,icut::Matrix{Int64},psis::Vector{Psistruct},insideidx::Matrix{Int64},ninsideidx::Vector{Int64})
-    #=
-    implicit none
-    integer nd,npbox,nboxes
-    real *8 fvals(nd,npbox,nboxes)
-    integer nbloc,nbctr,nlctr
-    real *8 centers(2,nboxes),bs,grid(2,npbox),xy(2)
-    integer ilevel(nboxes),iparent(nboxes)
-    integer ichild(4,nboxes),nchild(nboxes)
-    integer iflag(nboxes)
-    integer ifirstbox,ilastbox
-    integer, allocatable :: isum(:)
+function cutvol_tree_refine_boxes_flag(iflag::Vector{Int64},npbox::Int64,fvals::Matrix{Float64},fun::Function,grid::Matrix{Float64},nboxes::Int64,ifirstbox::Int64,nbloc::Int64,centers::Matrix{Float64},bs::Float64,nbctr::Int64,nlctr::Int64,ilevel::AbstractVector,iparent::AbstractVector,nchild::AbstractVector,ichild::AbstractMatrix,xk::Matrix{Float64},checkinside::Function,icut::Matrix{Int64},psis::Vector{Psistruct},insideidx::Matrix{Int64},ninsideidx::Vector{Int64},checkcut::Function)
 
-    integer i,ibox,nel,j,l,jbox,nbl,ii
-    integer xind(4),yind(4)
-
-    real *8 bsh
-    data xind/-1,1,-1,1/
-    data yind/-1,-1,1,1/
-
-    external fun
-    =#
-
-    
     xind = [-1,1,-1,1]
     yind = [-1,-1,1,1]
     xy = Vector{Float64}(undef,2)
@@ -1393,7 +1364,7 @@ function cutvol_tree_refine_boxes_flag(iflag::Vector{Int64},npbox::Int64,fvals::
 		    ninsideidx[jbox] = 0
 		elseif (icut[1,ibox] == 1)
 		    # Cell might be cut. Check.
-		    iscut = checkcut(centers[:,jbox],bs,curve)
+		    iscut = checkcut(centers[:,jbox],bs)
 		    if iscut # True
 			icut[1,jbox] = 1
 			xy = centers[:,jbox] .+ grid * bs
@@ -2133,7 +2104,7 @@ function checkoutside_multconnected(x::Array{Float64},curve)
     return idxin 
 end
 
-function checkcut(c,bs,paramv)
+function checkcut_polar(c,bs,paramv)
 
     xa = c[1] - bs/2
     xb = c[1] + bs/2
@@ -2155,7 +2126,6 @@ function checkcut(c,bs,paramv)
 	itr = 0
 
 	t0 = atan((ya + yb)/2 - c02, xa - c01) # Polar coordinates, initial guess is center on the side
-        #		t0 = tt[findmin(abs.(pnts .- xa .- 1im*(ya + yb)/2))[2]]
 	while (abs(t) > tol) & (itr < itrmax)
 	    t = real(param(t0) - xa)/real(dparam(t0))
 	    t0 = t0 - t
@@ -2172,7 +2142,6 @@ function checkcut(c,bs,paramv)
 	t = 1
 	itr = 0
 	t0 = atan((ya + yb)/2 - c02, xb -c01) # Polar coordinates, initial guess is center on the side
-        #		t0 = tt[findmin(abs.(pnts .- xb .- 1im*(ya + yb)/2))[2]]
 	while (abs(t) > tol) & (itr < itrmax)
 	    t = real(param(t0) - xb)/real(dparam(t0))
 	    t0 = t0 - t
@@ -2189,7 +2158,6 @@ function checkcut(c,bs,paramv)
 	t = 1
 	itr = 0
 	t0 = atan(ya-c02,(xa + xb)/2 - c01) # Polar coordinates, initial guess is center on the side
-        #		t0 = tt[findmin(abs.(pnts .- (xa + xb)/2 .- 1im*ya))[2]]
 	while (abs(t) > tol) & (itr < itrmax)
 	    t = (imag(param(t0)) - ya)/imag(dparam(t0))
 	    t0 = t0 - t
@@ -2223,12 +2191,100 @@ function checkcut(c,bs,paramv)
     return false
 end
 
+
+
+function checkcut_search(c,bs,paramv)
+
+    xa = c[1] - bs/2
+    xb = c[1] + bs/2
+    ya = c[2] - bs/2
+    yb = c[2] + bs/2
+
+    itrmax = 100
+    tol = 1e-12
+    tt = range(0,2*pi,100)
+    for i = 1:length(paramv)
+	c01 = paramv[i].center[1] + eps()
+	c02 = paramv[i].center[2] + eps()
+	s = paramv[i].orientation
+	param(t) = paramv[i].tau(s*t)
+	dparam(t) = s*paramv[i].dtau(s*t)
+	pnts = param.(tt)
+	# Check left side of square 
+	t = 1
+	itr = 0
+
+	t0 = tt[findmin(abs.(pnts .- xa .- 1im*(ya + yb)/2))[2]]
+	while (abs(t) > tol) & (itr < itrmax)
+	    t = real(param(t0) - xa)/real(dparam(t0))
+	    t0 = t0 - t
+	    itr = itr + 1
+	end
+	if itr < itrmax # Converged
+	    y0 = imag(param(t0))
+	    if (y0 >= ya) & (y0 <= yb)   
+		return true
+	    end
+	end
+
+	# Check right side of square 
+	t = 1
+	itr = 0
+	t0 = tt[findmin(abs.(pnts .- xb .- 1im*(ya + yb)/2))[2]]
+	while (abs(t) > tol) & (itr < itrmax)
+	    t = real(param(t0) - xb)/real(dparam(t0))
+	    t0 = t0 - t
+	    itr = itr + 1
+	end
+	if itr < itrmax # Converged
+	    y0 = imag(param(t0))
+	    if (y0 >= ya) & (y0 <= yb)
+		return true
+	    end
+	end
+
+	# Check bottom side of square 
+	t = 1
+	itr = 0
+	t0 = tt[findmin(abs.(pnts .- (xa + xb)/2 .- 1im*ya))[2]]
+	while (abs(t) > tol) & (itr < itrmax)
+	    t = (imag(param(t0)) - ya)/imag(dparam(t0))
+	    t0 = t0 - t
+	    itr = itr + 1
+	end
+	if itr < itrmax # Converged
+	    x0 = real(param(t0))
+	    if (x0 >= xa) & (x0 <= xb)
+		return true
+	    end
+	end
+	
+	# Check top side of square 
+	t = 1
+	itr = 0
+	t0 = tt[findmin(abs.(pnts .- (xa + xb)/2 .- 1im*yb))[2]] 
+	while (abs(t) > tol) & (itr < itrmax)
+	    t = (imag(param(t0)) - yb)/imag(dparam(t0))
+	    t0 = t0 - t
+	    itr = itr + 1
+	end
+	if itr < itrmax # Converged
+	    x0 = real(param(t0))
+	    if (x0 >= xa) & (x0 <= xb)
+		return true
+	    end
+	end
+    end
+    # No intersections found 
+    return false
+end
+
+
 # square
-#=
-function checkcut(c,bs,paramv)
+function checkcut_square(c,bs,xbdrycheck)
 xa = c[1] - bs/2
 xb = c[1] + bs/2
-ya	= c[2] - bs/2
+ya= c[2] - bs/2
 yb = c[2] + bs/2
 
 
@@ -2236,7 +2292,7 @@ return !isempty(intersect(findall(xa .< xbdrycheck[1,:] .< xb), findall(ya .< xb
 return true
 
 end
-=#
+
 function approxcutarea(xbdry,a1,b1,a2,b2,checkinside)
     x = [a1,b1,b1,a1]
     y = [a2,a2,b2,b2]

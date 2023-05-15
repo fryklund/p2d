@@ -47,6 +47,8 @@ function solveinterior(minlev,tol,uniform)
     checkinside2(x) = checkinside_param(x,c0[1],c0[2],t -> hcat(real.(curve[2].tau.(-t)),imag.(curve[2].tau.(-t))))
     checkinside(x) = checkinside_param2(x,checkinside1,checkinside2)
 
+    checkcut(c,bs) = checkcut_polar(c,bs,curve)
+
     # Setup input and reference in grid
     UREF = ufunc.(X, Y)
     
@@ -56,7 +58,7 @@ function solveinterior(minlev,tol,uniform)
 
     # Compute volume potential
     println(" * Extension and compute volume potential")
-    Up, Up_bdry,minlev,FEXT,itree, iptr, fvals, centers, boxsize, nboxes, ipou, potmat, uplim = solve_volumepot(ffunc,boxlen,xbdry,xdomain,checkinside,curve,uniform,tol,minlev=minlev)
+    Up, Up_bdry,minlev,FEXT,itree, iptr, fvals, centers, boxsize, nboxes, ipou, potmat, uplim = solve_volumepot(ffunc,boxlen,xbdry,xdomain,checkinside,curve,uniform,tol,checkcut,minlev=minlev)
     
     # Laplace solve
     bdry_cond = ufunc.(xt, yt)
