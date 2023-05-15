@@ -31,7 +31,7 @@ end
 function fgaussn(xy,dpars)
 #=
 c
-c       compute three gaussians, their
+c       compute four gaussians, their
 c       centers are given in dpars(1:3*nd), and their 
 c       variances in dpars(3*nd+1:4*nd)
 c
@@ -74,7 +74,7 @@ Crad = -10
       dpars[6] = rsig/2.1
 
       dpars[7] = -0.21
-      dpars[8] = -0.25#-0.16
+      dpars[8] = -0.25
 
       dpars[9] = rsig/4.5 
       
@@ -88,12 +88,6 @@ Crad = -10
 
       dpars[15] = rsig/3.3
 
-ffuncr(r) = 2*Crad*exp(-r^2/(2*sigma^2))/(sigma^2)    
-ufunc(x,y) = ufuncr(r(x,y))
-ffunc(x,y) =  ffuncr(r(x,y))
-#C0 = 0.0
-#x0 = 0.0
-#y0 = 0.0
 ufunc(x,y) = exactfgaussn([x,y],dpars,Crad,x0,y0)
 ffunc(x,y) = fgaussn([x,y],dpars)
 # Discretize
@@ -142,7 +136,7 @@ checkcut(c,bs) = checkcut_polar(c,bs,curve)
     # Poisson solve free-space
 	println(" * Extension and VFMM")
 	up, up_bdry,minlev,FEXT,itree, iptr, fvals, centers, boxsize, nboxes, ipou, potmat, uplim  = solve_volumepot(ffunc,boxlen,xbdry,xdomain,checkinside,curve,uniform,tol,checkcut,minlev=minlevitr)
-#uplim = 0.0
+
     # Laplace solve
     bdry_cond = ufunc.(xt, yt)
     mod_bdry_cond = bdry_cond - (up_bdry  - (uplim .- Crad*(numcurve==1)) .* log.((xt .- S[1,1]).^2 .+ (yt .- S[2,1]).^2))
@@ -159,9 +153,8 @@ else
 end
 
 	@time sol, gmlog = IterativeSolvers.gmres(LHS, rhs; reltol=eps(), log=true)
-#A = system_matrix(dcurve,S,exterior=true)
     gmresidual = norm(LHS*sol-rhs, Inf)
-#soldirect = A\rhs
+
     @show gmresidual
 
 density = sol
@@ -189,14 +182,10 @@ println(" * Layer pot eval")
     h = X[2,1]-X[1,1]
     EL2 = sqrt(sum(E.^2)*h^2)/sqrt(sum(UREF.^2)*h^2)
     @show Einf
-	 @show EL1
+    @show EL1
     @show EL2
 
 return [Einf EL1 EL2]'
 end
- #Uh = zeros(size(X))
- #   Uh[interior] = uh
-	
-#	E = ufunc.(X, Y) .- (reshape(up,size(X)) .+ (uplim/4/pi .+ Crad) .* log.((X .- 0.0).^2 .+ (Y .- 0.0).^2).^2) .- Uh
 
 

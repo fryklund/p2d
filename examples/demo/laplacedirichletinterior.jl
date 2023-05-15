@@ -17,7 +17,8 @@ panelorder = 16
 solve_inteq = true
 
 # Discretize
-L = 4.#curve = AnalyticDomains.starfish(n_arms = 5, amplitude = 0.3)
+L = 4.0
+#curve = AnalyticDomains.starfish(n_arms = 5, amplitude = 0.3)
 curve1 = AnalyticDomains.starfish(n_arms = 5, amplitude = 0.3)
 #curve2 = AnalyticDomains.starfish(n_arms = 2, amplitude = 0.1,radius=0.3,exterior=true)
 #curve3 = AnalyticDomains.starfish(n_arms = 4, amplitude = 0.2,radius=0.3,center=(-0.2,0.0),interior=true)
@@ -152,8 +153,3 @@ println(" Max relative pointwise error")
 @show maximum(log10.(E1[interior]))
 println(" Max relative pointwise error FMM")
 @show maximum(log10.(E2[interior]))
-
-# TODO: only interior points should be plotted
-#heatmap(x,y,log10.(E2' .+ eps()),clim = (-16.,-0.), aspect_ratio =:equal)
-
-#plot!(dcurve.points[1,:], dcurve.points[2,:])

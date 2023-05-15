@@ -41,15 +41,11 @@ arclength = sum(dcurve.dS)
 # Volume grid
 xgrid = range(-boxlen/2, boxlen/2, length=Ngrid)
 ygrid = range(-boxlen/2, boxlen/2, length=Ngrid)
-#xgrid = range(-boxlen/2, boxlen/2, length=Ngrid+1)
-#ygrid = range(-boxlen/2, boxlen/2, length=Ngrid+1)
-#xgrid = xgrid[1:end-1]
-#ygrid = ygrid[1:end-1]
 X, Y = ndgrid(xgrid, ygrid)
 xe = [vec(X) vec(Y)]
 xet = copy(xe')
 interior, interior_near = CurveDiscretization.interior_points(dcurve, xet)
-#checkinside(x) = findall(CurveDiscretization.interior_points(dcurve, x)[1])
+
 polygon = hcat(dcurve.points,dcurve.points[:,1])
 polygon = StaticArrays.SVector.(polygon[1,:],polygon[2,:])
 checkinside(x) = findall([PolygonOps.inpolygon(p, polygon; in=true, on=false, out=false) for p in StaticArrays.SVector.(x[1,:],x[2,:])] .== 1)

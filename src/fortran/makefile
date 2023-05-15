@@ -1,4 +1,3 @@
-#gfortran -shared -fPIC solve_fmm.o -w -o int2.so ${HOME}/lib/libboxcode2dlegacy.so -fopenmp -lblas -llapack
 
 FCOMP=gfortran
 

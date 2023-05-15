@@ -1,4 +1,6 @@
-
+c
+c       wrapper for calling lbfmm2d - boxcode2d-legacy, from Julia
+c	
 	subroutine solve_fmm(TOL,pot,ltree,npbox,norder,
 	1    nboxes,nlevels,itree,iptr,fvals,boxsize,centers)
 	implicit real *8 (a-h,o-z)
@@ -15,9 +17,6 @@
 
 	complex *16 zpars
 
-c       real *8 potmat(np,nboxes)
-
-	
 	real *8, allocatable :: potex(:,:,:)
 	complex *16 ima,zz,ztmp,zk
 
