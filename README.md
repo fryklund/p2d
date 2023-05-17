@@ -1,4 +1,4 @@
-Integral equation solver for Poisson's equation in the plane.
+Integral equation solver for the Poisson equation in the plane.
 
 The following has been verified on:
 1, Fedora Linux 37 (Workstation Edition) x86_64
@@ -10,7 +10,7 @@ Install:
 2, Follow the install instructions for the boxcode
 3, Run make install from p2d/src/fortan
 4, Launch the Julia REPL in p2d/
-4, In the Julia REPL, activate the project through entering ']' followed by 'instantiate'
+5, In the Julia REPL, activate the project through entering ']' followed by 'instantiate'
 
 Run the code:
 

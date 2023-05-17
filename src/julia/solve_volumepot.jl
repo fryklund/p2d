@@ -39,7 +39,6 @@ function solve_volumepot(frhs,boxlen,xbdry,xdomain,checkinside,curve,uniform,tol
     xk = copy(ug')
     nxk = size(xk,1)
 
-
     println(" #Gaussian basis functions = ", nxk)
     xk = copy(xk') # Each column is a point (x,y)
     
@@ -52,8 +51,12 @@ function solve_volumepot(frhs,boxlen,xbdry,xdomain,checkinside,curve,uniform,tol
     iptype = 2 # Norm to measure error in volume fmm
     if uniform
         tol = 10.0
+        bdrytol = 2^(-minlev*1.0+1)
+    else
+        bdrytol = 2^(-minlev*1.0)
     end
-    bdrytol = 2^(-minlev*1.0+1.0)
+
+
     etascale = 1.0 # Scale estimated error with ~boxsize^eta, set eta = 1 if unsure
     
     nboxes,nlevels,ltree,ncut = cutvol_tree_mem(tol,boxlen,norder,iptype,etascale,frhs,rintl,checkinside,xk,minlev,bdrytol,curve,checkcut)

@@ -621,8 +621,6 @@ function cutvol_tree_refine_boxes(irefinebox::Vector{Int64},npbox::Int64,fvals::
 		jbox = nbl+j
 		centers[1,jbox] = centers[1,ibox] + xind[j] * bsh
 		centers[2,jbox] = centers[2,ibox] + yind[j] * bsh
-                #	 DEV = true
-                #if DEV
 		if (icut[1,ibox] == 0)
 		    icut[:,jbox] .= 0
 		    insideidx[:,jbox] .= range(1,npbox) # All points are inside
@@ -689,6 +687,7 @@ function cutvol_tree_refine_boxes(irefinebox::Vector{Int64},npbox::Int64,fvals::
 			end
 		    end
 		end
+                
 
 
 
